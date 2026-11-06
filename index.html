@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trajectory Forcing conditions each new video chunk on the denoising trajectories of preceding chunks for autoregressive long video generation. NeurIPS 2026.">
+  <meta name="author" content="Bohan Wang, Shuo Chen, Yunzhi Li, Zhaozheng Chen, Junzhe Zhang, Hanwang Zhang">
+  <meta name="theme-color" content="#faf9f6">
+  <title>Trajectory Forcing · NeurIPS 2026</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%2316191f'/%3E%3Ccircle cx='11' cy='28' r='3' fill='%238793b5'/%3E%3Ccircle cx='20' cy='20' r='3' fill='%23b8c0d8'/%3E%3Ccircle cx='29' cy='12' r='3.6' fill='%23e08a4f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#idea">Skip to content</a>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Trajectory Forcing</a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#idea">Idea</a>
+        <a href="#training">Method</a>
+        <a href="#results">Results</a>
+        <a href="#videos">Videos</a>
+        <a href="#citation">BibTeX</a>
+      </nav>
+      <a class="topbar-paper" href="assets/paper/trajectory-forcing.pdf" target="_blank" rel="noopener">Paper <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Title block -->
+    <section class="hero wrap" aria-labelledby="title">
+      <div class="hero-heading">
+        <p class="label venue"><a href="https://openreview.net/forum?id=em6QThoqTy" target="_blank" rel="noopener" aria-label="NeurIPS 2026 paper on OpenReview">NeurIPS 2026</a></p>
+        <h1 id="title"><span class="title-main">Trajectory Forcing</span><span class="sr-only">: </span><span class="title-sub">Exploiting Diffusion Trajectories for Autoregressive Long Video Generation</span></h1>
+      </div>
+
+      <figure class="hero-film" id="showcase" aria-label="Selected Trajectory Forcing generations">
+        <div class="film-heading"><span class="label">TraF · 30-second generation</span><span id="hero-scene-name">Pigeon</span></div>
+        <div class="film-frame">
+          <video id="hero-video" muted playsinline preload="none" width="832" height="480" poster="assets/posters/TraF_pigeon.webp" data-src="assets/videos/TraF_pigeon.mp4" aria-label="Trajectory Forcing: pigeon"></video>
+          <div class="film-progress" aria-hidden="true"><span id="hero-progress"></span></div>
+        </div>
+        <div class="film-controls">
+          <button id="hero-play" class="hero-play" type="button" data-state="paused" aria-controls="hero-video">
+            <svg class="hero-icon-play" aria-hidden="true" viewBox="0 0 20 20" width="14" height="14"><path d="M6 4.2v11.6a.6.6 0 0 0 .9.5l9.2-5.8a.6.6 0 0 0 0-1L6.9 3.7a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>
+            <svg class="hero-icon-pause" aria-hidden="true" viewBox="0 0 20 20" width="14" height="14"><rect x="5" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/><rect x="11.6" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/></svg>
+            <span class="hero-play-label">Play film</span>
+          </button>
+          <span class="film-speed">Original speed</span>
+          <output id="hero-time" aria-live="off">0:00 / 0:30</output>
+        </div>
+        <div class="hero-scenes" role="group" aria-label="Choose a Trajectory Forcing scene">
+          <button type="button" data-hero-scene="pigeon" aria-pressed="true" aria-controls="hero-video"><img src="assets/posters/TraF_pigeon.webp" width="832" height="480" alt=""><span>Pigeon</span></button>
+          <button type="button" data-hero-scene="portrait" aria-pressed="false" aria-controls="hero-video"><img src="assets/posters/TraF_portrait.webp" width="832" height="480" alt=""><span>Portrait</span></button>
+          <button type="button" data-hero-scene="japanese_anime" aria-pressed="false" aria-controls="hero-video"><img src="assets/posters/TraF_japanese_anime.webp" width="832" height="480" alt=""><span>Animated film</span></button>
+        </div>
+        <p id="hero-video-status" class="hero-video-status" role="status" aria-live="polite"></p>
+        <figcaption class="film-caption">Selected qualitative examples. <a id="hero-compare" href="#videos">Compare this scene <span aria-hidden="true">↓</span></a></figcaption>
+        <noscript><p class="film-caption"><a href="assets/videos/TraF_pigeon.mp4">Open the full pigeon video</a>.</p></noscript>
+      </figure>
+
+      <div class="hero-byline">
+        <ul class="authors" aria-label="Authors">
+          <li>Bohan Wang<sup>*</sup></li>
+          <li>Shuo Chen<sup>*</sup></li>
+          <li>Yunzhi Li<sup>*</sup></li>
+          <li>Zhaozheng Chen</li>
+          <li>Junzhe Zhang</li>
+          <li>Hanwang Zhang<sup>†</sup></li>
+        </ul>
+        <p class="affiliations"><span>Huawei Noah Research Institute</span></p>
+        <p class="contribution">* Equal contribution. &nbsp; † Corresponding author.</p>
+        <nav class="resources" aria-label="Paper resources">
+          <a class="btn btn-solid" href="assets/paper/trajectory-forcing.pdf" target="_blank" rel="noopener">
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16"><path d="M5 2.5h6.5L15.5 6.5V17a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z M11 2.5V7h4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            Paper
+          </a>
+          <button class="btn resource-code" type="button" disabled>
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16"><path d="M7 5 3 10l4 5M13 5l4 5-4 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Code
+          </button>
+          <a class="btn" href="#citation">
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16"><path d="M7 5 3 10l4 5M13 5l4 5-4 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            BibTeX
+          </a>
+        </nav>
+        <a class="hero-idea-link" href="#idea">Explore the idea <span aria-hidden="true">↓</span></a>
+      </div>
+    </section>
+
+    <!-- 01 · Idea -->
+    <section id="idea" class="section wrap" aria-labelledby="idea-heading">
+      <div class="rail"><p class="label"><span class="num">01</span>Idea</p></div>
+      <div class="body">
+        <h2 id="idea-heading">Denoising trajectories are context for what comes next.</h2>
+        <p class="idea-lede">Trajectory Forcing turns intermediate denoising predictions into useful context for generating subsequent video chunks, across supervised training and self-rollout training.</p>
+
+        <figure class="figure idea-origin">
+          <a class="zoom" href="assets/figures/teaser.webp" data-zoom aria-label="Enlarge figure: standard autoregression versus autoregressive diffusion">
+            <img src="assets/figures/teaser.webp" width="2400" height="890" loading="lazy" alt="Paper figure. (a) Standard autoregression: tokens 1, 2 and 3 form the history used to predict token 4. (b) Autoregressive diffusion: each chunk is generated from noise to clean through several steps, so chunks 1 to 3 each carry a trajectory that conditions the prediction of chunk 4.">
+          </a>
+          <figcaption>(a) Tokens are generated as single units. (b) Video chunks leave a history of denoising predictions.</figcaption>
+        </figure>
+
+        <div class="trajv" id="trajectory">
+          <figure class="trajv-figure" id="trajectory-schematic">
+            <div class="trajv-plate">
+<svg class="tg-svg" viewBox="0 0 480 340" role="img" aria-labelledby="tg-title tg-desc">
+<title id="tg-title">Denoising trajectories as context (conceptual view)</title>
+<desc id="tg-desc">Conceptual view, not sampled data or an execution trace. Three columns are video chunks in order. Each column is a denoising trajectory from Gaussian noise at the top to the chunk's final output at the bottom; its points darken as they become cleaner. Chunks 1 and 2 are complete. Chunk 3 starts from Gaussian noise, which is sampled without conditioning, and its current denoising step is marked by a ring. The shaded context of this step holds the complete trajectories of chunks 1 and 2, including their points below the current step, and chunk 3's own earlier states; chunk 3's later steps are outside it. One arrow leads from this context to the current step. With Play, the shading first covers only the endpoints of chunks 1 and 2 and then extends to their full trajectories; chunk 3's denoising updates then appear one at a time, each drawn with this context and arrow.</desc>
+<defs><marker id="tg-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 9 5 0 9z" class="tg-headfill"/></marker><marker id="tg-axis-head" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="tg-axisfill"/></marker><linearGradient id="tg-ramp" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="280"><stop offset="0" stop-color="#c5cbda"/><stop offset="1" stop-color="#46527a"/></linearGradient></defs>
+<path id="tg-region" class="tg-region" d="M98 68Q98 58 108 58L428 58Q438 58 438 68L438 145Q438 155 428 155L310 155Q300 155 300 165L300 320Q300 330 290 330L108 330Q98 330 98 320Z" style="opacity:1"/>
+<path class="tg-path" d="M129 80C130 88.3 133.7 113.3 135 130C136.3 146.7 137.2 163.3 137 180C136.8 196.7 135.3 213.3 134 230C132.7 246.7 129.8 271.7 129 280"/>
+<path class="tg-path" d="M253 80C254 88.3 257.7 113.3 259 130C260.3 146.7 261.2 163.3 261 180C260.8 196.7 259.3 213.3 258 230C256.7 246.7 253.8 271.7 253 280"/>
+<path class="tg-guide" d="M393 80C394 88.3 397.7 113.3 399 130C400.3 146.7 401.2 163.3 401 180C400.8 196.7 399.3 213.3 398 230C396.7 246.7 393.8 271.7 393 280"/>
+<path id="tg-path-3" class="tg-path is-current" d="M393 80C394 88.3 397.7 113.3 399 130C400.3 146.7 401.2 163.3 401 180C400.8 196.7 399.3 213.3 398 230C396.7 246.7 393.8 271.7 393 280" pathLength="1" style="stroke-dashoffset:0.5;opacity:1"/>
+<circle class="tg-node lv0" cx="129" cy="80" r="8"/>
+<circle class="tg-node lv1" cx="135" cy="130" r="8"/>
+<circle class="tg-node lv2" cx="137" cy="180" r="8"/>
+<circle class="tg-node lv3" cx="134" cy="230" r="8"/>
+<circle class="tg-node lv4" cx="129" cy="280" r="9"/>
+<circle class="tg-node lv0" cx="253" cy="80" r="8"/>
+<circle class="tg-node lv1" cx="259" cy="130" r="8"/>
+<circle class="tg-node lv2" cx="261" cy="180" r="8"/>
+<circle class="tg-node lv3" cx="258" cy="230" r="8"/>
+<circle class="tg-node lv4" cx="253" cy="280" r="9"/>
+<circle id="tg-node-3-0" cx="393" cy="80" r="8" class="tg-node is-noise" style="opacity:1;transform:scale(1)"/>
+<circle id="tg-node-3-1" cx="399" cy="130" r="8" class="tg-node is-own" style="opacity:1;transform:scale(1)"/>
+<circle id="tg-node-3-2" cx="401" cy="180" r="8" class="tg-node is-current" style="opacity:1;transform:scale(1)"/>
+<circle id="tg-node-3-3" cx="398" cy="230" r="8" class="tg-node is-slot" style="opacity:1;transform:scale(1)"/>
+<circle id="tg-node-3-4" cx="393" cy="280" r="9" class="tg-node is-slot" style="opacity:1;transform:scale(1)"/>
+<circle id="tg-ring" class="tg-ring" r="13" cx="401" cy="180" style="opacity:1"/>
+<path id="tg-arrow" class="tg-arrow" marker-end="url(#tg-head)" d="M302 310C340 310 368 250 391 188" style="opacity:1"/>
+<text class="tg-head" x="132" y="34"><tspan class="tg-m">x</tspan><tspan class="tg-sub" dy="4">1</tspan></text>
+<text class="tg-head" x="256" y="34"><tspan class="tg-m">x</tspan><tspan class="tg-sub" dy="4">2</tspan></text>
+<text class="tg-head is-current" x="396" y="34"><tspan class="tg-m">x</tspan><tspan class="tg-sub" dy="4">3</tspan></text>
+<text class="tg-quiet" x="34" y="85" text-anchor="middle">noise</text>
+<line class="tg-axis" x1="34" y1="97" x2="34" y2="263" marker-end="url(#tg-axis-head)"/>
+<text class="tg-quiet" x="34" y="285" text-anchor="middle">clean</text>
+<text id="tg-lab-end" class="tg-ctx" x="199" y="315" text-anchor="middle" style="opacity:0">endpoints only</text>
+<text id="tg-lab-full" class="tg-ctx" x="199" y="315" text-anchor="middle" style="opacity:0">full trajectories</text>
+<text id="tg-lab-ctx" class="tg-ctx" x="199" y="315" text-anchor="middle" style="opacity:1">context for this step</text>
+<text id="tg-cur" class="tg-curlab" x="418" y="185" style="opacity:1"><tspan class="tg-m">x</tspan><tspan class="tg-sub" dy="4">3,t</tspan></text>
+</svg>
+            </div>
+            <figcaption class="trajv-caption"><span class="label">Conceptual view</span> Endpoint-only conditioning uses each earlier chunk’s final output; trajectory conditioning also draws on intermediate predictions.</figcaption>
+          </figure>
+          <div class="trajv-side">
+            <button type="button" class="trajv-play" data-trajectory-play data-state="paused" aria-controls="trajectory-schematic" hidden>
+              <svg class="i-play" aria-hidden="true" viewBox="0 0 20 20" width="14" height="14"><path d="M6 4.2v11.6a.6.6 0 0 0 .9.5l9.2-5.8a.6.6 0 0 0 0-1L6.9 3.7a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>
+              <svg class="i-pause" aria-hidden="true" viewBox="0 0 20 20" width="14" height="14"><rect x="5" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/><rect x="11.6" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/></svg>
+              <span class="trajv-play-label">Play</span>
+            </button>
+            <p>Each column is one chunk’s denoising trajectory, from Gaussian noise at the top to its final output at the bottom.</p>
+            <p>In this conceptual view, the shaded history includes complete earlier trajectories and the current chunk’s earlier states. The arrow shows how this history conditions the current update. The current chunk’s initial noise is sampled without conditioning.</p>
+            <p>In practice, each update uses one selected clean-signal prediction from each retained preceding chunk. <a href="#selection">Selection details</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 · Method -->
+    <section id="training" class="section wrap" aria-labelledby="training-heading">
+      <div class="rail"><p class="label"><span class="num">02</span>METHOD</p></div>
+      <div class="body">
+        <h2 id="training-heading">From trajectory learning to practical conditioning</h2>
+        <p class="intro">Ground-truth videos have no model-generated denoising history, so TraF learns in two stages: pseudo-trajectories first, then trajectories from its own rollouts.</p>
+
+        <div class="stages">
+          <article class="stage" aria-labelledby="stage1-title">
+            <header class="stage-head">
+              <p class="label">Stage 1 · SL</p>
+              <h3 id="stage1-title">Pseudo-trajectories from ground truth</h3>
+            </header>
+            <dl class="stage-rows">
+              <div><dt>Source</dt><dd>Ground-truth videos</dd></div>
+              <div><dt>Context</dt><dd>At a sampled noise level, <strong>one velocity prediction per chunk</strong> gives a clean-signal estimate. Sampling different noise levels across training yields the pseudo-trajectory points.</dd></div>
+              <div><dt>Objective</dt><dd>Flow matching</dd></div>
+            </dl>
+            <details class="algo">
+              <summary>Algorithm 1 <span>pseudo-code from the paper</span></summary>
+              <a class="zoom" href="assets/figures/sl_algorithm.webp" data-zoom aria-label="Enlarge Algorithm 1">
+                <img src="assets/figures/sl_algorithm.webp" width="1188" height="1152" loading="lazy" alt="Algorithm 1 from the paper, SL: training on ground truth. For each chunk, sample a noise level, interpolate with Gaussian noise and use one velocity prediction to estimate the clean signal without gradients. Then train the model with flow matching to predict velocities for freshly noised chunks using those estimates as context.">
+              </a>
+            </details>
+          </article>
+
+          <div class="handoff" aria-hidden="true"><span class="handoff-line"></span><span class="handoff-text">initializes</span></div>
+
+          <article class="stage stage-rl" aria-labelledby="stage2-title">
+            <header class="stage-head">
+              <p class="label">Stage 2 · RL</p>
+              <h3 id="stage2-title">Real trajectories from self-rollout</h3>
+            </header>
+            <dl class="stage-rows">
+              <div><dt>Source</dt><dd>Initialized from the SL model, the student generates chunks autoregressively with a <strong>four-step</strong> self-rollout</dd></div>
+              <div><dt>Context</dt><dd>Its four denoising predictions form each chunk’s real trajectory; selected predictions condition later chunks</dd></div>
+              <div><dt>Objective</dt><dd>Distribution Matching Distillation (DMD) with a frozen teacher and a learned critic</dd></div>
+            </dl>
+            <details class="algo">
+              <summary>Algorithm 2 <span>pseudo-code from the paper</span></summary>
+              <a class="zoom" href="assets/figures/rl_algorithm.webp" data-zoom aria-label="Enlarge Algorithm 2">
+                <img src="assets/figures/rl_algorithm.webp" width="1188" height="1152" loading="lazy" alt="Algorithm 2 from the paper, RL: training on self-rollouts. For each chunk, run the denoising schedule; at each step select trajectory context from preceding chunks, predict the clean signal, and cache it in the trajectory; then compute the DMD loss and update the student.">
+              </a>
+            </details>
+          </article>
+        </div>
+
+        <article id="selection" class="selection-study" aria-labelledby="selection-heading">
+          <header class="study-head">
+            <p class="label">Selection · practical conditioning</p>
+            <h3 id="selection-heading">Using trajectory context efficiently</h3>
+            <p>Full-trajectory conditioning adds attention and memory cost. TraF uses one selected prediction per retained preceding chunk at each update.</p>
+          </header>
+          <div class="selection-layout">
+            <figure class="figure selection-figure">
+              <a class="zoom" href="assets/figures/selection_concept.webp" data-zoom aria-label="Enlarge figure: trajectory conditioning">
+                <img src="assets/figures/selection_concept.webp" width="1600" height="1601" loading="lazy" alt="Paper figure. Left: clean-signal estimates predicted at successive denoising steps of a preceding chunk. Right: the current chunk being denoised, which receives one of the preceding chunk's intermediate estimates as context. Arrows illustrate the selection options shown in the paper.">
+              </a>
+              <figcaption>A preceding chunk’s trajectory supplies context to the current update. Arrows are illustrative, not a timestep mapping.</figcaption>
+            </figure>
+            <div class="selection-copy">
+              <dl class="selection-steps">
+                <div><dt>Cache</dt><dd>Clean-signal predictions from preceding chunks, not noisy latents.</dd></div>
+                <div><dt>Context</dt><dd>One selected prediction from each retained preceding chunk at each denoising update.</dd></div>
+                <div><dt>Rule</dt><dd>On the finite denoising grid, select the available prediction nearest to the regularized target progress.</dd></div>
+              </dl>
+              <details class="selection-rule">
+                <summary>Selection rule <span>continuous target &amp; discrete steps</span></summary>
+                <div class="selection-rule-body">
+                  <p>The continuous target scales the current step’s amplitude signal-to-noise ratio by &gamma;.</p>
+                  <p class="selection-equation" role="math" aria-label="S gamma of p equals gamma p divided by one plus gamma minus one times p">
+                    <span><i>S</i><sub>&gamma;</sub>(<i>p</i>) = </span><span class="math-fraction"><span>&gamma;<i>p</i></span><span>1 + (&gamma; &minus; 1)<i>p</i></span></span>
+                  </p>
+                  <p><i>p</i> = 1 &minus; &sigma; is denoising progress, from noise (0) to clean signal (1); &gamma; &ge; 1.</p>
+                  <p>On the finite grid, TraF adds a regularization term to the target ratio and converts it to progress before selecting the nearest available prediction. See Appendix A of the paper.</p>
+                  <p><strong>&gamma; = 1</strong> is step-aligned. <strong>&gamma; &rarr; &infin;</strong> approaches endpoint-only conditioning.</p>
+                </div>
+              </details>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 03 · Results -->
+    <section id="results" class="section wrap" aria-labelledby="results-heading">
+      <div class="rail"><p class="label"><span class="num">03</span>Results</p></div>
+      <div class="body">
+        <h2 id="results-heading">Trajectory context for long video generation</h2>
+        <p class="intro">We first examine 30-second generation, then generation at TraF’s five-second training duration. These comparisons from the paper span different model and training configurations.</p>
+        <p class="comparison-key">Indigo row markers identify Self Forcing, Causal Forcing and TraF. See their <a href="#setup-title">training and inference settings</a>.</p>
+        <aside class="results-guide" aria-labelledby="results-guide-heading">
+          <p class="label" id="results-guide-heading">Read the results</p>
+          <ul>
+            <li><a href="#drift-title">Long-video stability</a><span>Read Quality Drift alongside the 30-second quality scores.</span></li>
+            <li><a href="#results-5s-title">Short-video quality</a><span>Compare the reported 5-second VBench scores for Total, Quality and Semantic.</span></li>
+            <li><a href="#speed-cost">Inference speed</a><span>Read the reported throughput and latency alongside the five-second quality scores.</span></li>
+          </ul>
+        </aside>
+        <p class="protocol-note">Two evaluation settings. Different prompt sets and scoring protocols: the 5-second and 30-second scores are not directly comparable.</p>
+
+        <article class="benchmark" aria-labelledby="results-30s-title">
+          <header class="benchmark-head"><h3 id="results-30s-title">30-second generation</h3><span class="label">6× TraF’s training duration</span></header>
+          <p class="benchmark-caption" id="protocol-30s">We evaluated each method on the same 128 MovieGenBench prompts. Nine VBench dimensions are grouped into Temporal Quality, Frame Quality and Text Alignment; Total is the equal-weighted average of these three axes.</p>
+          <figure class="tradeoff-figure">
+            <a class="zoom" href="assets/figures/long_video_tradeoff.svg" data-zoom aria-label="Enlarge the long-video quality comparison">
+              <picture>
+                <source media="(max-width: 600px)" srcset="assets/figures/long_video_tradeoff_mobile.svg">
+              <img src="assets/figures/long_video_tradeoff.svg" width="720" height="480" loading="lazy" alt="Scatter plot of Frame Quality and Temporal Quality for six methods in the 30-second evaluation: CausVid, Causal Forcing, Self Forcing, Trajectory Forcing, Rolling Forcing and LongLive. Hollow markers identify Rolling Forcing and LongLive, which use long-video-specific training.">
+              </picture>
+            </a>
+            <figcaption>30-second evaluation. Frame Quality and Temporal Quality are higher-is-better. Labels show Frame / Temporal scores. Axes are zoomed; hollow markers denote long-video-specific training.</figcaption>
+          </figure>
+          <div class="table-scroll" role="region" aria-label="30-second evaluation scores" tabindex="0">
+            <table id="benchmark-30s-table" class="benchmark-table benchmark-30s" aria-describedby="protocol-30s drift-title">
+              <caption class="sr-only">30-second VBench axes, total score, VideoScore2 and Quality Drift for six selected methods, with long-video-specific training shown as a separate group.</caption>
+              <thead><tr><th scope="col">Method</th><th scope="col">Total ↑</th><th scope="col">Temporal<br>Quality ↑</th><th scope="col">Frame<br>Quality ↑</th><th scope="col">Text<br>Alignment ↑</th><th scope="col">VideoScore2 ↑</th><th scope="col">Quality<br>Drift ↓</th></tr></thead>
+              <tbody>
+                <tr class="group-row"><th scope="rowgroup" colspan="7">Main comparisons</th></tr>
+                <tr><th scope="row">CausVid<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>68.50</td><td>83.97</td><td>62.66</td><td>58.88</td><td>3.549</td><td>2.72</td></tr>
+                <tr class="matched"><th scope="row">Causal Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>70.48</td><td>89.26</td><td>59.58</td><td>62.61</td><td>3.589</td><td>4.36</td></tr>
+                <tr class="matched"><th scope="row">Self Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>71.06</td><td>85.35</td><td>61.49</td><td>66.33</td><td>3.719</td><td>2.21</td></tr>
+                <tr class="ours matched"><th scope="row">Trajectory Forcing <span class="tag">Ours</span><span class="method-meta">1.3B · Wan-14B teacher</span></th><td><strong>73.98</strong></td><td><strong>90.39</strong></td><td>65.46</td><td>66.08</td><td>3.771</td><td>1.38</td></tr>
+              </tbody>
+              <tbody>
+                <tr class="group-row"><th scope="rowgroup" colspan="7">Long-video-specific training</th></tr>
+                <tr><th scope="row">Rolling Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>71.39</td><td>82.04</td><td>65.36</td><td>66.77</td><td><strong>3.804</strong></td><td><strong>0.56</strong></td></tr>
+                <tr><th scope="row">LongLive<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>71.48</td><td>81.33</td><td><strong>66.07</strong></td><td><strong>67.04</strong></td><td>3.801</td><td>0.60</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Rolling Forcing and LongLive use long-video-specific training and their own inference architectures. SF, CF and TraF use the same sliding-window inference with an attention sink in this evaluation.</p>
+          <p class="table-note">TraF’s 30-second Total is 2.92 points higher than Self Forcing (95% paired prompt-bootstrap CI: +2.06 to +3.78).</p>
+          <p class="table-note" id="drift-title">Quality Drift is the absolute imaging-quality difference between the first and last 5-second segments; lower is better. VideoScore2 reports its text-alignment sub-score. All other columns are higher-is-better.</p>
+          <p class="table-note">Bold marks the best value in each column across all displayed methods. TraF leads Total and Temporal Quality; LongLive leads Frame Quality and Text Alignment; Rolling Forcing leads VideoScore2 and has the lowest Quality Drift. <a href="assets/paper/trajectory-forcing.pdf" target="_blank" rel="noopener">See the paper for all methods.</a></p>
+        </article>
+
+        <article class="benchmark" aria-labelledby="results-5s-title">
+          <header class="benchmark-head"><h3 id="results-5s-title">5-second generation</h3><span class="label">VBench · short video</span></header>
+          <p class="benchmark-caption" id="protocol-5s">946 prompts, all 16 VBench dimensions. Total = (4 × Quality + Semantic) / 5. Throughput and latency are reported in FPS and seconds, respectively.</p>
+          <div class="table-scroll" role="region" aria-label="5-second evaluation scores and inference speed" tabindex="0">
+            <table id="benchmark-5s-table" class="benchmark-table benchmark-5s" aria-describedby="protocol-5s">
+              <caption class="sr-only">5-second VBench scores and inference speed for twelve selected methods across three model categories.</caption>
+              <thead><tr><th scope="col">Method</th><th scope="col">Total ↑</th><th scope="col">Quality ↑</th><th scope="col">Semantic ↑</th><th scope="col" class="speed-column">Throughput ↑<span class="table-unit">FPS</span></th><th scope="col">Latency ↓<span class="table-unit">seconds</span></th></tr></thead>
+              <tbody>
+                <tr class="group-row"><th scope="rowgroup" colspan="6">Bidirectional Video Diffusion</th></tr>
+                <tr><th scope="row">LTX-Video<span class="method-meta">1.9B · Teacher —</span></th><td>79.83</td><td>81.88</td><td>71.62</td><td class="speed-column">8.98</td><td>13.5</td></tr>
+                <tr><th scope="row">Wan2.1-1.3B<span class="method-meta">1.3B · Teacher —</span></th><td>83.37</td><td>84.30</td><td>79.65</td><td class="speed-column">0.78</td><td>103</td></tr>
+              </tbody>
+              <tbody>
+                <tr class="group-row"><th scope="rowgroup" colspan="6">Autoregressive Video Diffusion</th></tr>
+                <tr><th scope="row">MAGI-1<span class="method-meta">4.5B · Teacher —</span></th><td>78.88</td><td>81.67</td><td>67.72</td><td class="speed-column">0.19</td><td>282</td></tr>
+                <tr><th scope="row">NOVA<span class="method-meta">0.6B · Teacher —</span></th><td>80.31</td><td>80.66</td><td>78.92</td><td class="speed-column">0.88</td><td>4.1</td></tr>
+                <tr><th scope="row">Pyramid Flow<span class="method-meta">2B · Teacher —</span></th><td>80.75</td><td>83.41</td><td>70.11</td><td class="speed-column">6.70</td><td>2.5</td></tr>
+                <tr><th scope="row">SkyReels-V2<span class="method-meta">1.3B · Teacher —</span></th><td>81.97</td><td>83.96</td><td>74.01</td><td class="speed-column">0.49</td><td>112</td></tr>
+              </tbody>
+              <tbody>
+                <tr class="group-row"><th scope="rowgroup" colspan="6">Distilled Autoregressive Video Diffusion</th></tr>
+                <tr><th scope="row">CausVid<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>81.33</td><td>83.98</td><td>70.72</td><td class="speed-column">17.0</td><td>0.69</td></tr>
+                <tr><th scope="row">Rolling Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>83.07</td><td>83.61</td><td>80.89</td><td class="speed-column">15.8</td><td>0.76</td></tr>
+                <tr><th scope="row">LongLive<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>83.09</td><td>83.69</td><td>80.69</td><td class="speed-column"><strong>18.0</strong></td><td><strong>0.65</strong></td></tr>
+                <tr class="matched"><th scope="row">Causal Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>84.04</td><td>84.59</td><td>81.84</td><td class="speed-column">17.0</td><td>0.69</td></tr>
+                <tr class="matched"><th scope="row">Self Forcing<span class="method-meta">1.3B · Wan-14B teacher</span></th><td>84.31</td><td>85.07</td><td>81.28</td><td class="speed-column">17.0</td><td>0.69</td></tr>
+                <tr class="ours matched"><th scope="row">Trajectory Forcing <span class="tag">Ours</span><span class="method-meta">1.3B · Wan-14B teacher</span></th><td><strong>85.15</strong></td><td><strong>85.89</strong></td><td><strong>82.20</strong></td><td class="speed-column">15.0</td><td>0.78</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">We evaluated TraF, Rolling Forcing and LongLive. The Self Forcing row comes from its original paper. The other rows shown here come from the Causal Forcing paper. <a href="assets/paper/trajectory-forcing.pdf" target="_blank" rel="noopener">See the full table and sources in the paper.</a></p>
+          <p class="table-note" id="speed-cost">Bold marks the best reported value in each column. Among the methods shown, TraF leads on Total, Quality and Semantic. LongLive has the highest reported throughput and lowest reported latency.</p>
+        </article>
+
+        <div class="setup" role="group" aria-labelledby="setup-title">
+          <p id="setup-title" class="label">SF / CF / TraF setup</p>
+          <dl class="setup-specs">
+            <div><dt>Base model</dt><dd>Wan2.1-T2V-1.3B</dd></div>
+            <div><dt>Inference</dt><dd>4 steps</dd></div>
+            <div><dt>Resolution</dt><dd>832×480</dd></div>
+            <div><dt>Video frame rate</dt><dd>16 fps</dd></div>
+          </dl>
+          <p class="setup-note">Self Forcing, Causal Forcing and Trajectory Forcing use the same backbone architecture and teacher during RL. TraF starts from its SL checkpoint, while SF and CF use their original initializations. In the 30-second evaluation, all three use the same sliding-window inference with an attention sink.</p>
+        </div>
+
+        <p class="table-note">The following three ablations examine the information in trajectory context, learning before distillation, and the choice of conditioning predictions.</p>
+
+        <div class="ablation-evidence" id="trajectory-ablation" role="group" aria-labelledby="ablation-title">
+          <div class="ablation-copy">
+            <p class="label">Evidence · 5-second VBench</p>
+            <h3 id="ablation-title">Testing the information in trajectory context</h3>
+            <p>Adding Gaussian noise to endpoint predictions lowers Total at both tested magnitudes. The unperturbed endpoint scores 84.24.</p>
+          </div>
+          <div class="ablation-scores">
+            <p class="evidence-metric">VBench Total <span>↑ higher is better</span></p>
+            <dl class="drift-values">
+              <div><dt>Gaussian<br><i class="m">σ</i> = 0.22</dt><dd>83.87</dd></div>
+              <div><dt>Gaussian<br><i class="m">σ</i> = 0.11</dt><dd>83.95</dd></div>
+              <div class="ours"><dt>Trajectory<br>predictions</dt><dd>85.15</dd></div>
+            </dl>
+          </div>
+          <details class="data-disclosure">
+            <summary>View all three VBench metrics</summary>
+            <p class="benchmark-caption" id="ablation-protocol">5-second VBench ablation. Endpoint predictions with added isotropic Gaussian noise serve as the context for the two noise controls. All three metrics are higher-is-better.</p>
+            <div class="table-scroll" role="region" aria-label="Noise versus trajectory ablation scores" tabindex="0">
+              <table class="benchmark-table ablation-table" aria-describedby="ablation-protocol">
+                <caption class="sr-only">5-second VBench noise versus trajectory ablation.</caption>
+                <thead><tr><th scope="col">Context</th><th scope="col">Total ↑</th><th scope="col">Quality ↑</th><th scope="col">Semantic ↑</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">Noisy endpoint, <i class="m">σ</i> = 0.22</th><td>83.87</td><td>84.76</td><td>80.29</td></tr>
+                  <tr><th scope="row">Noisy endpoint, <i class="m">σ</i> = 0.11</th><td>83.95</td><td>84.92</td><td>80.08</td></tr>
+                  <tr class="ours"><th scope="row">Trajectory</th><td><strong>85.15</strong></td><td><strong>85.89</strong></td><td><strong>82.20</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+
+        <article class="sl-study" aria-labelledby="sl-ablation-heading">
+          <header class="study-head">
+            <p class="label">Training evidence</p>
+            <h3 id="sl-ablation-heading">SL stage, before distillation</h3>
+          </header>
+          <p class="benchmark-caption" id="sl-ablation-protocol">Same architecture and data, evaluated before distillation with 50-step denoising on 5-second VBench. All three metrics are higher-is-better.</p>
+          <div class="table-scroll" role="region" aria-label="Supervised learning ablation before distillation" tabindex="0">
+            <table id="sl-ablation-table" class="benchmark-table sl-ablation-table" aria-describedby="sl-ablation-protocol sl-ablation-takeaway">
+              <caption class="sr-only">SL-stage ablation before distillation, evaluated with 50-step denoising.</caption>
+              <thead><tr><th scope="col">SL strategy</th><th scope="col">Total &uarr;</th><th scope="col">Quality &uarr;</th><th scope="col">Semantic &uarr;</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Teacher Forcing</th><td>83.47</td><td>84.09</td><td>81.02</td></tr>
+                <tr><th scope="row">Diffusion Forcing</th><td>84.07</td><td>84.66</td><td><strong>81.68</strong></td></tr>
+                <tr class="ours"><th scope="row">Trajectory</th><td><strong>84.39</strong></td><td><strong>85.25</strong></td><td>80.96</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note" id="sl-ablation-takeaway">Trajectory has the highest Total and Quality; Diffusion Forcing has the highest Semantic score. These SL-stage scores use a different evaluation stage and denoising schedule from the final four-step model.</p>
+        </article>
+
+        <article id="selection-ablation" class="sl-study" aria-labelledby="selection-ablation-heading">
+          <header class="study-head">
+            <p class="label">Conditioning evidence</p>
+            <h3 id="selection-ablation-heading">Choosing trajectory context</h3>
+          </header>
+          <div class="selection-evidence">
+            <p class="benchmark-caption" id="selection-protocol">5-second VBench full-pipeline ablation. Each &gamma; setting uses a separately trained and evaluated model. See Figure 2 of the paper. All three metrics are higher-is-better.</p>
+            <div class="table-scroll" role="region" aria-label="Selection parameter ablation scores" tabindex="0">
+              <table id="selection-table" class="benchmark-table selection-table" aria-describedby="selection-protocol selection-takeaway">
+                <caption class="sr-only">5-second VBench full-pipeline selection ablation from Figure 2.</caption>
+                <thead><tr><th scope="col">&gamma;</th><th scope="col">Total &uarr;</th><th scope="col">Quality &uarr;</th><th scope="col">Semantic &uarr;</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">1</th><td>84.82</td><td>85.49</td><td>82.10</td></tr>
+                  <tr class="ours"><th scope="row">2</th><td><strong>85.15</strong></td><td>85.89</td><td><strong>82.20</strong></td></tr>
+                  <tr class="selection-near"><th scope="row">3</th><td>85.13</td><td><strong>85.91</strong></td><td>81.97</td></tr>
+                  <tr><th scope="row">5</th><td>84.58</td><td>85.47</td><td>81.03</td></tr>
+                  <tr><th scope="row">10</th><td>84.62</td><td>85.40</td><td>81.50</td></tr>
+                  <tr><th scope="row" aria-label="infinity, endpoint-only">&infin;</th><td>84.24</td><td>85.04</td><td>81.07</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="table-note" id="selection-takeaway">Every finite &gamma; reported here has a higher Total than endpoint-only conditioning (&gamma; &rarr; &infin;). &gamma; = 2 and 3 give the highest Total scores. Bold marks the best value in each column.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 04 · Videos -->
+    <section id="videos" class="screening" aria-labelledby="videos-heading">
+      <div class="wrap screening-inner">
+        <div class="rail"><p class="label"><span class="num">04</span>Videos</p></div>
+        <div class="body">
+          <div class="screening-head">
+            <div>
+              <h2 id="videos-heading">30-second comparisons</h2>
+              <p class="intro">Selected qualitative examples from SF, CF and TraF, played together at the original speed.</p>
+            </div>
+            <div class="scene-tabs" role="tablist" aria-label="Choose a video scene">
+              <button id="tab-pigeon" type="button" role="tab" aria-selected="true" aria-controls="comparison" data-scene="pigeon"><img src="assets/posters/TraF_pigeon.webp" width="832" height="480" alt=""><span>Pigeon</span></button>
+              <button id="tab-portrait" type="button" role="tab" aria-selected="false" aria-controls="comparison" tabindex="-1" data-scene="portrait"><img src="assets/posters/TraF_portrait.webp" width="832" height="480" alt=""><span>Portrait</span></button>
+              <button id="tab-japanese_anime" type="button" role="tab" aria-selected="false" aria-controls="comparison" tabindex="-1" data-scene="japanese_anime"><img src="assets/posters/TraF_japanese_anime.webp" width="832" height="480" alt=""><span>Animated film</span></button>
+            </div>
+          </div>
+
+          <div id="comparison" role="tabpanel" aria-labelledby="tab-pigeon" tabindex="0">
+            <div id="comparison-grid" class="comparison-grid"></div>
+
+            <div class="playback">
+              <button id="play-toggle" class="play" type="button" data-state="paused">
+                <svg class="icon-play" aria-hidden="true" viewBox="0 0 20 20" width="18" height="18"><path d="M6 4.2v11.6a.6.6 0 0 0 .9.5l9.2-5.8a.6.6 0 0 0 0-1L6.9 3.7a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>
+                <svg class="icon-pause" aria-hidden="true" viewBox="0 0 20 20" width="18" height="18"><rect x="5" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/><rect x="11.6" y="4" width="3.4" height="12" rx=".8" fill="currentColor"/></svg>
+                <span class="play-label">Play comparison</span>
+              </button>
+              <button id="restart" class="ghost" type="button">
+                <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16"><path d="M4.5 10a5.5 5.5 0 1 0 1.8-4.1M4.5 3.5v3.2h3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Restart
+              </button>
+              <label class="timeline"><span class="sr-only">Comparison time in seconds</span><input id="seek" type="range" min="0" max="30" step="0.1" value="0" aria-valuetext="0 seconds"></label>
+              <output id="time" for="seek" role="timer" aria-live="off">0:00 / 0:30</output>
+            </div>
+            <p id="playback-status" class="playback-status" role="status" aria-live="polite"></p>
+
+            <div class="screening-foot">
+              <details class="prompt"><summary>Prompt</summary><p id="prompt-text"></p></details>
+              <p class="comparison-note">The comparison plays the first 30 seconds of each video at original speed. “Full video” opens the complete file. Comparisons with other methods are in <a href="assets/paper/trajectory-forcing.pdf" target="_blank" rel="noopener">the paper</a>.</p>
+            </div>
+          </div>
+          <noscript><p class="noscript">Enable JavaScript for synchronized comparisons. All nine videos remain available directly.
+            Pigeon: <a href="assets/videos/SF_pigeon.mp4">Self Forcing</a>, <a href="assets/videos/CF_pigeon.mp4">Causal Forcing</a>, <a href="assets/videos/TraF_pigeon.mp4">TraF</a>.
+            Portrait: <a href="assets/videos/SF_portrait.mp4">Self Forcing</a>, <a href="assets/videos/CF_portrait.mp4">Causal Forcing</a>, <a href="assets/videos/TraF_portrait.mp4">TraF</a>.
+            Animated film: <a href="assets/videos/SF_japanese_anime.mp4">Self Forcing</a>, <a href="assets/videos/CF_japanese_anime.mp4">Causal Forcing</a>, <a href="assets/videos/TraF_japanese_anime.mp4">TraF</a>.</p></noscript>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 · Citation -->
+    <section id="citation" class="section wrap" aria-labelledby="citation-heading">
+      <div class="rail"><p class="label"><span class="num">05</span>Cite</p></div>
+      <div class="body">
+        <div class="cite-head">
+          <h2 id="citation-heading">BibTeX</h2>
+          <div class="cite-actions">
+            <button id="copy-citation" class="btn btn-small" type="button">Copy</button>
+            <a class="btn btn-small" href="citation.bib" download>Download .bib</a>
+          </div>
+        </div>
+        <pre class="bib"><code id="bibtex">@inproceedings{wang2026trajectoryforcing,
+  title     = {Trajectory Forcing: Exploiting Diffusion Trajectories for
+               Autoregressive Long Video Generation},
+  author    = {Wang, Bohan and Chen, Shuo and Li, Yunzhi and
+               Chen, Zhaozheng and Zhang, Junzhe and Zhang, Hanwang},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2026}
+}</code></pre>
+        <p id="citation-status" class="sr-only" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>Trajectory Forcing <span aria-hidden="true">·</span> NeurIPS 2026</span>
+      <a href="#top">Back to top <span aria-hidden="true">↑</span></a>
+    </div>
+  </footer>
+
+  <dialog id="lightbox" class="lightbox" aria-label="Enlarged figure">
+    <div class="lightbox-bar">
+      <button type="button" class="lb-btn" id="lightbox-size" aria-pressed="false">Actual size</button>
+      <a class="lb-btn" id="lightbox-open" href="#" target="_blank" rel="noopener">Open image <span aria-hidden="true">↗</span></a>
+      <button type="button" class="lb-btn lb-close" id="lightbox-close">Close <span aria-hidden="true">✕</span></button>
+    </div>
+    <div class="lightbox-stage"><img id="lightbox-img" alt=""></div>
+  </dialog>
+</body>
+</html>
